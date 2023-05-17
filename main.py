@@ -65,7 +65,7 @@ def main():
     display_size = (800, 600)
     pygame.display.set_mode(display_size, DOUBLEBUF | OPENGL)
     gluPerspective(45, (display_size[0]/display_size[1]), 0.1, 100.0)
-    glTranslatef(-2, -2, -45)
+    glTranslatef(0, -5, -45)
 
     while True:
         for event in pygame.event.get():
