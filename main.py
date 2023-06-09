@@ -2,7 +2,8 @@ from decimal import Decimal
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
-# import numpy as np
+import numpy as np
+from numpy import sqrt
 # import pygame
 # from pygame.locals import *
 from OpenGL.GL import *
@@ -80,6 +81,9 @@ class Parallelepiped:
         len_akt = 4 * nx * ny * nz + 3 * (nx * ny + ny * nz + nx * nz) + 2 * (nx + ny + nz) + 1
         if len_akt != len(self.akt):
             raise Exception("Wrong count of vertexes")
+
+        self.DFIABG = self.build_dfiabg()
+        print("Init completed")
 
     def build_elements_nt(self) -> Tuple[Dict[ELEMENT_INDEX, List[Point]], Dict[ELEMENT_INDEX, List[int]]]:
         elements = defaultdict(list)
@@ -165,6 +169,50 @@ class Parallelepiped:
             if node == node_to_find:
                 return i + 1  # todo: Mb remove the '+ 1' statement
         raise Exception("Could not find the Point in AKT")
+
+    def build_dfiabg(self):
+        DFIABG = np.zeros((27, 3, 20))
+        AiBiGi = [  # вузли в локальній системі координат (A, B, G)
+            [-1, 1, -1], [1, 1, -1], [1, -1, -1], [-1, -1, -1],
+            [-1, 1, 1], [1, 1, 1], [1, -1, 1], [-1, -1, 1],
+            [0, 1, -1], [1, 0, -1], [0, -1, -1], [-1, 0, -1],
+            [-1, 1, 0], [1, 1, 0], [1, -1, 0], [-1, -1, 0],
+            [0, 1, 1], [1, 0, 1], [0, -1, 1], [-1, 0, 1],
+        ]
+        ABG_CONST = (-sqrt(0.6), 0, sqrt(0.6))  # точки Гауса
+        node_index = 0
+        for A in ABG_CONST:
+            for B in ABG_CONST:
+                for G in ABG_CONST:
+                    # print(f"({A}, {B}, {G})")
+                    for i in range(0, 8):
+                        # calculate d_fi for i = 0, 7
+                        a_i, b_i, g_i = tuple(AiBiGi[i])
+                        DFIABG[node_index, 0, i] = (  # d_fi_A
+                            0.125 * (1 + B * b_i) * (1 + G * g_i) * (a_i * (2 * A * a_i + B * b_i + G * g_i - 1))
+                        )
+                        DFIABG[node_index, 1, i] = (  # d_fi_B
+                            0.125 * (1 + A * a_i) * (1 + G * g_i) * (b_i * (A * a_i + 2 * B * b_i + G * g_i - 1))
+                        )
+                        DFIABG[node_index, 2, i] = (  # d_fi_G
+                            0.125 * (1 + B * b_i) * (1 + A * a_i) * (g_i * (A * a_i + B * b_i + 2 * G * g_i - 1))
+                        )
+
+                    for i in range(8, 20):
+                        # calculate d_fi for i = 8, 19
+                        a_i, b_i, g_i = tuple(AiBiGi[i])
+
+                        DFIABG[node_index, 0, i] = (  # d_fi_A
+                            0.25 * (1 + B * b_i) * (1 + G * g_i) * (-a_i ** 3 * b_i ** 2 * G ** 2 - a_i ** 3 * B ** 2 * g_i ** 2 - 3 * A ** 2 * a_i * b_i ** 2 * g_i ** 2 + a_i - 2 * A * b_i ** 2 * g_i ** 2)
+                        )
+                        DFIABG[node_index, 1, i] = (  # d_fi_B
+                            0.25 * (1 + A * a_i) * (1 + G * g_i) * (-a_i ** 2 * b_i ** 3 * G ** 2 - A ** 2 * b_i ** 3 * g_i ** 2 - 3 * a_i ** 2 * B ** 2 * b_i * g_i ** 2 + b_i - 2 * a_i ** 2 * B * g_i ** 2)
+                        )
+                        DFIABG[node_index, 2, i] = (  # d_fi_G
+                            0.25 * (1 + B * b_i) * (1 + A * a_i) * (-a_i ** 2 * B ** 2 * g_i ** 3 - A ** 2 * b_i ** 2 * g_i ** 3 - 3 * a_i ** 2 * b_i ** 2 * G ** 2 * g_i + g_i - 2 * a_i ** 2 * b_i ** 2 * G)
+                        )
+                    node_index += 1
+        return DFIABG
 
 
 def main():
