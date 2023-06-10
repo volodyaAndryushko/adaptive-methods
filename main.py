@@ -1,9 +1,9 @@
-from decimal import Decimal
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
 import numpy as np
-from numpy import sqrt
+from numpy import sqrt, float64
+
 # import pygame
 # from pygame.locals import *
 from OpenGL.GL import *
@@ -38,9 +38,9 @@ def draw_cube(verticies):
 
 class Point:
     def __init__(self, x, y, z):
-        self.x = Decimal(x)
-        self.y = Decimal(y)
-        self.z = Decimal(z)
+        self.x = float64(x)
+        self.y = float64(y)
+        self.z = float64(z)
 
     def __repr__(self):
         return f"({self.x}, {self.y}, {self.z})"
@@ -61,9 +61,9 @@ class Point:
 
 class Parallelepiped:
     def __init__(self, ax, ay, az, nx: int, ny: int, nz: int):
-        self.ax = Decimal(ax)
-        self.ay = Decimal(ay)
-        self.az = Decimal(az)
+        self.ax = float64(ax)
+        self.ay = float64(ay)
+        self.az = float64(az)
 
         self.nx = nx
         self.ny = ny
@@ -83,6 +83,9 @@ class Parallelepiped:
             raise Exception("Wrong count of vertexes")
 
         self.DFIABG = self.build_dfiabg()
+
+        self.DJs = self.build_delta()
+
         print("Init completed")
 
     def build_elements_nt(self) -> Tuple[Dict[ELEMENT_INDEX, List[Point]], Dict[ELEMENT_INDEX, List[int]]]:
@@ -167,7 +170,7 @@ class Parallelepiped:
     def find_akt_index(self, node_to_find: Point):
         for i, node in enumerate(self.akt):
             if node == node_to_find:
-                return i + 1  # todo: Mb remove the '+ 1' statement
+                return i
         raise Exception("Could not find the Point in AKT")
 
     def build_dfiabg(self):
@@ -213,6 +216,23 @@ class Parallelepiped:
                         )
                     node_index += 1
         return DFIABG
+
+    def build_delta(self):  # побудова якубіанів
+        DJs = defaultdict(list)
+        for n, element in enumerate(self.elements):
+            for k in range(27):
+                DJ = np.zeros((3, 3))
+                for abg in range(3):
+                    for i in range(20):
+                        global_node_index = self.nt.get(n)[i]
+                        node = self.akt[global_node_index]
+                        dfiabg = self.DFIABG[k, abg, i]
+                        DJ[abg, 0] += node.x * dfiabg  # Dx/Da, Dx/Db, Dx/Dg
+                        DJ[abg, 1] += node.y * dfiabg  # Dy ...
+                        DJ[abg, 2] += node.z * dfiabg  # Dz ...
+
+                DJs[n].append(DJ)
+        return DJs
 
 
 def main():
