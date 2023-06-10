@@ -86,6 +86,8 @@ class Parallelepiped:
 
         self.DJs = self.build_delta()
 
+        self.DFIXYZ = self.build_dfixyz()
+
         print("Init completed")
 
     def build_elements_nt(self) -> Tuple[Dict[ELEMENT_INDEX, List[Point]], Dict[ELEMENT_INDEX, List[int]]]:
@@ -233,6 +235,22 @@ class Parallelepiped:
 
                 DJs[n].append(DJ)
         return DJs
+
+    def build_dfixyz(self):
+        DFIXYZ_by_element = defaultdict(list)
+        for n, element in enumerate(self.elements):
+            for k in range(27):
+                DFIXYZ = list()
+                DJ = self.DJs[n][k]
+                for i in range(20):
+                    # dfiabg = [DfiDa, DfiDb, DfiDg]
+                    dfiabg = np.array([self.DFIABG[k, 0, i], self.DFIABG[k, 1, i], self.DFIABG[k, 2, i]])
+
+                    # Розв'язуємо систему лінійних рівнянь
+                    dfixyz = np.linalg.solve(DJ, dfiabg)  # DfiDx, DfiDy, DfiDz
+                    DFIXYZ.append(dfixyz)
+                DFIXYZ_by_element[n].append(DFIXYZ)
+        return DFIXYZ_by_element
 
 
 def main():
