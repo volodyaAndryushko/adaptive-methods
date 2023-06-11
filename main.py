@@ -78,6 +78,7 @@ class Parallelepiped:
         self.akt = self.build_akt()
         print("Built akt")
         self.elements, self.nt = self.build_elements_nt()
+        self.ZP = self.build_zp()  # тиснемо на верхні грані всіх верхніх елементів
 
         len_akt = 4 * nx * ny * nz + 3 * (nx * ny + ny * nz + nx * nz) + 2 * (nx + ny + nz) + 1
         if len_akt != len(self.akt):
@@ -176,6 +177,14 @@ class Parallelepiped:
                     for i in range(self.nx + 1):
                         akt.append(Point(x=i * self.delta_x, y=j * self.delta_y, z=k * self.delta_z / 2))
         return akt
+
+    def build_zp(self):
+        count_elements_under_pressure = self.nx * self.ny
+        count_free_elements = self.count_of_elements - count_elements_under_pressure
+        ZP = list()
+        for element_index in range(self.count_of_elements - 1, count_free_elements - 1, -1):
+            ZP.append((element_index, 5))
+        return ZP
 
     def find_akt_index(self, node_to_find: Point):
         for i, node in enumerate(self.akt):
