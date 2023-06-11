@@ -109,6 +109,12 @@ class Parallelepiped:
         self.FE = self.build_fe()
         print("Built FE")
 
+        self.K = self.build_K()
+        print("Built K")
+
+        self.F = self.build_F()
+        print("Built F")
+
         print("Init completed")
 
     def build_elements_nt(self) -> Tuple[Dict[ELEMENT_INDEX, List[Point]], Dict[ELEMENT_INDEX, List[int]]]:
@@ -195,7 +201,7 @@ class Parallelepiped:
         count_free_elements = self.count_of_elements - count_elements_under_pressure
         ZP = dict()
         for element_index in range(self.count_of_elements - 1, count_free_elements - 1, -1):
-            ZP[element_index] = 5
+            ZP[element_index] = 5  # todo: supports only one edge to be pressed
         return ZP
 
     def find_akt_index(self, node_to_find: Point):
@@ -446,6 +452,26 @@ class Parallelepiped:
             else:
                 Fe[n] = np.zeros(60)
         return Fe
+
+    def build_K(self):
+        count_of_nodes = len(self.akt)
+        K = np.zeros((3 * count_of_nodes, 3 * count_of_nodes))
+        for n, Ke in self.MGE.items():
+            for i, _ in enumerate(Ke):
+                for j, _ in enumerate(Ke[i]):
+                    k = 3 * self.nt[n][i % 20] + i // 20
+                    l = 3 * self.nt[n][j % 20] + j // 20
+                    K[k][l] = Ke[i][j]
+        return K  # some items == 0 ;(  (I hope that's OK)
+
+    def build_F(self):
+        count_of_nodes = len(self.akt)
+        F = np.zeros(3 * count_of_nodes)
+        for n, Fe in self.FE.items():
+            for i, _ in enumerate(Fe):
+                k = 3 * self.nt[n][i % 20] + i // 20
+                F[k] = Fe[i]
+        return F
 
 
 def main():
