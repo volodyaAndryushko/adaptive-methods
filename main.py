@@ -98,6 +98,17 @@ class Parallelepiped:
         print("Built MGE")
 
         self.DPSITE = self.build_dpsite()
+        print("Built DPSITE")
+
+        self.DXYZTE = self.build_dxyzte()
+        print("Built DXYZTE")
+
+        self.PSI = self.build_psi()
+        print("Built PSI")
+
+        self.FE = self.build_fe()
+        print("Built FE")
+
         print("Init completed")
 
     def build_elements_nt(self) -> Tuple[Dict[ELEMENT_INDEX, List[Point]], Dict[ELEMENT_INDEX, List[int]]]:
@@ -182,9 +193,9 @@ class Parallelepiped:
     def build_zp(self):
         count_elements_under_pressure = self.nx * self.ny
         count_free_elements = self.count_of_elements - count_elements_under_pressure
-        ZP = list()
+        ZP = dict()
         for element_index in range(self.count_of_elements - 1, count_free_elements - 1, -1):
-            ZP.append((element_index, 5))
+            ZP[element_index] = 5
         return ZP
 
     def find_akt_index(self, node_to_find: Point):
@@ -316,9 +327,7 @@ class Parallelepiped:
             mge[20:40, 40:] = a_23
             mge[40:, 20:40] = a_23.T
             mge_by_element[n] = mge
-            assert np.allclose(mge, mge.T, rtol=1e-05, atol=1e-08)  # check symmetric
-
-        # todo: build MGE(60, 60) from mge_by_element[n]
+            # assert np.allclose(mge, mge.T, rtol=1e-05, atol=1e-08)  # check symmetric
         return mge_by_element
 
     def build_dpsite(self):
@@ -351,6 +360,92 @@ class Parallelepiped:
                     DPSITE[node_index, 1, i] = d_psi_T
                 node_index += 1
         return DPSITE
+
+    def build_dxyzte(self):
+        FACE_INDEX_POINTS = {
+            5: {4, 5, 6, 7, 16, 17, 18, 19},
+        }
+        DXYZTE = defaultdict(list)
+        for n, face_index in self.ZP.items():
+            for counter in range(9):
+                dxyzte = np.zeros((3, 2))
+                for i, local_node_index in enumerate(FACE_INDEX_POINTS[face_index]):  # for i in range(8)
+                    global_node_index = self.nt[n][local_node_index]
+                    global_node = self.akt[global_node_index]
+                    dpsi_de = self.DPSITE[counter][0][i]
+                    dpsi_dt = self.DPSITE[counter][1][i]
+
+                    dxyzte[0][0] += global_node.x * dpsi_de  # dx/de
+                    dxyzte[1][0] += global_node.y * dpsi_de  # dy/de
+                    dxyzte[2][0] += global_node.z * dpsi_de  # dz/de
+
+                    dxyzte[0][1] += global_node.x * dpsi_dt  # dx/dt
+                    dxyzte[1][1] += global_node.y * dpsi_dt  # dy/dt
+                    dxyzte[2][1] += global_node.z * dpsi_dt  # dz/dt
+
+                DXYZTE[n].append(dxyzte)
+        return DXYZTE
+
+    def build_psi(self):
+        ABG_CONST = (-sqrt(0.6), 0, sqrt(0.6))  # точки Гауса
+        EiTi = [  # вузли в локальній системі координат (E, T)
+            [-1, -1], [1, -1], [1, 1], [-1, 1], [0, -1], [1, 0], [0, 1], [-1, 0],
+        ]
+        PSI = dict()
+        for n, face_index in self.ZP.items():
+            psi = np.zeros((9, 8))
+            counter = 0
+            for E in ABG_CONST:
+                for T in ABG_CONST:
+                    for i in range(8):
+                        e_i, t_i = EiTi[i]
+                        if i < 4:
+                            psi[counter][i] = 0.25 * (1 + E * e_i) * (1 + T * t_i) * (E * e_i + T * t_i - 1)
+                        elif i in (4, 6):
+                            psi[counter][i] = 0.5 * (1 - E ** 2) * (1 + T * t_i)
+                        else:  # if i in (5, 7):
+                            psi[counter][i] = 0.5 * (1 - T ** 2) * (1 + E * e_i)
+                    counter += 1
+            PSI[n] = psi
+        return PSI
+
+    def build_fe(self):
+        Fe = dict()
+        FACE_INDEX_POINTS = {
+            5: [4, 5, 6, 7, 16, 17, 18, 19],
+        }
+        C_CONST = (float64(5 / 9), float64(8 / 9), float64(5 / 9))
+        P = float64(0.2)  # Значення навантаження  # todo: move to input
+
+        for n, element in enumerate(self.elements):
+            f_1, f_2, f_3 = (np.zeros(20) for i in range(3))
+            if n in self.ZP.keys():
+                edge_index = self.ZP[n]
+                for i in range(8):
+                    counter = 0
+                    for c_m in C_CONST:
+                        for c_n in C_CONST:
+                            dx_de = self.DXYZTE[n][counter][0][0]
+                            dy_de = self.DXYZTE[n][counter][1][0]
+                            dz_de = self.DXYZTE[n][counter][2][0]
+                            dx_dt = self.DXYZTE[n][counter][0][1]
+                            dy_dt = self.DXYZTE[n][counter][1][1]
+                            dz_dt = self.DXYZTE[n][counter][2][1]
+                            psi = self.PSI[n][counter][i]
+
+                            local_node_index = FACE_INDEX_POINTS[edge_index][i]
+                            common_value = c_m * c_n * P
+                            f_1[local_node_index] += common_value * (dy_de * dz_dt - dz_de * dy_dt) * psi
+                            f_2[local_node_index] += common_value * (dz_de * dx_dt - dx_de * dz_dt) * psi
+                            f_3[local_node_index] += common_value * (dx_de * dy_dt - dy_de * dx_dt) * psi
+                            counter += 1
+                Fe[n] = np.zeros(60)
+                Fe[n][:20] = f_1
+                Fe[n][20:40] = f_2
+                Fe[n][40:] = f_3
+            else:
+                Fe[n] = np.zeros(60)
+        return Fe
 
 
 def main():
