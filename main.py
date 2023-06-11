@@ -97,6 +97,7 @@ class Parallelepiped:
         self.MGE = self.build_mge()
         print("Built MGE")
 
+        self.DPSITE = self.build_dpsite()
         print("Init completed")
 
     def build_elements_nt(self) -> Tuple[Dict[ELEMENT_INDEX, List[Point]], Dict[ELEMENT_INDEX, List[int]]]:
@@ -319,6 +320,37 @@ class Parallelepiped:
 
         # todo: build MGE(60, 60) from mge_by_element[n]
         return mge_by_element
+
+    def build_dpsite(self):
+        DPSITE = np.zeros((9, 2, 8))
+        EiTi = [  # вузли в локальній системі координат (E, T)
+            [-1, -1], [1, -1], [1, 1], [-1, 1], [0, -1], [1, 0], [0, 1], [-1, 0],
+        ]
+        ABG_CONST = (-sqrt(0.6), 0, sqrt(0.6))  # точки Гауса
+        node_index = 0
+        for E in ABG_CONST:
+            for T in ABG_CONST:
+                # print(f"({A}, {B}, {G})")
+                for i in range(0, 8):
+                    e_i, t_i = tuple(EiTi[i])
+                    if i < 4:
+                        d_psi_E = (
+                            0.25 * (T * t_i + 1) * (e_i * (e_i * E + T * t_i - 1) + e_i * (e_i * E + 1))
+                        )
+                        d_psi_T = (
+                            0.25 * (E * e_i + 1) * (t_i * (t_i * T + E * e_i - 1) + t_i * (t_i * T + 1))
+                        )
+                    elif i in (4, 6):
+                        d_psi_E = (-T * t_i - 1) * E
+                        d_psi_T = 0.5 * (1 - E ** 2) * t_i
+                    else:   # if i in (5, 7):
+                        d_psi_E = 0.5 * (1 - T ** 2) * e_i
+                        d_psi_T = (-E * e_i - 1) * T
+
+                    DPSITE[node_index, 0, i] = d_psi_E
+                    DPSITE[node_index, 1, i] = d_psi_T
+                node_index += 1
+        return DPSITE
 
 
 def main():
