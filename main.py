@@ -76,17 +76,25 @@ class Parallelepiped:
         self.count_of_elements = nx * ny * nz
 
         self.akt = self.build_akt()
+        print("Built akt")
         self.elements, self.nt = self.build_elements_nt()
 
         len_akt = 4 * nx * ny * nz + 3 * (nx * ny + ny * nz + nx * nz) + 2 * (nx + ny + nz) + 1
         if len_akt != len(self.akt):
             raise Exception("Wrong count of vertexes")
+        print("Built elements & nt")
 
         self.DFIABG = self.build_dfiabg()
+        print("Built DFIABG")
 
         self.DJs = self.build_delta()
+        print("Built DJs")
 
         self.DFIXYZ = self.build_dfixyz()
+        print("Built DFIXYZ")
+
+        self.MGE = self.build_mge()
+        print("Built MGE")
 
         print("Init completed")
 
@@ -251,6 +259,57 @@ class Parallelepiped:
                     DFIXYZ.append(dfixyz)
                 DFIXYZ_by_element[n].append(DFIXYZ)
         return DFIXYZ_by_element
+
+    def build_mge(self):
+        mge_by_element = dict()
+        C_CONST = (float64(5 / 9), float64(8 / 9), float64(5 / 9))
+        E = float64(70)  # Значення модуля Юнга для Алюмінію
+        v = float64(0.34)  # Значення коефіцієнта Пуассона для Алюмінію
+        _lambda = E / ((1 + v) * (1 - 2 * v))  # вікіпедія каже (E * v) / ...
+        m = E / (2 * (1 + v))
+
+        for n, element in enumerate(self.elements):
+            a_11, a_22, a_33, a_12, a_13, a_23 = (np.zeros((20, 20)) for i in range(6))
+            for i in range(20):
+                for j in range(20):
+                    counter = 0
+                    for c_m in C_CONST:
+                        for c_n in C_CONST:
+                            for c_k in C_CONST:
+                                delta = np.linalg.det(self.DJs[n][counter])
+                                common_value = c_m * c_n * c_k * delta
+                                dfi_i_dx = self.DFIXYZ[n][counter][i][0]
+                                dfi_j_dx = self.DFIXYZ[n][counter][j][0]
+                                dfi_i_dy = self.DFIXYZ[n][counter][i][1]
+                                dfi_j_dy = self.DFIXYZ[n][counter][j][1]
+                                dfi_i_dz = self.DFIXYZ[n][counter][i][2]
+                                dfi_j_dz = self.DFIXYZ[n][counter][j][2]
+
+                                a_11[i, j] += common_value * (_lambda * (1 - v) * dfi_i_dx * dfi_j_dx + m * (dfi_i_dy * dfi_j_dy + dfi_i_dz * dfi_j_dz))
+                                a_22[i, j] += common_value * (_lambda * (1 - v) * dfi_i_dy * dfi_j_dy + m * (dfi_i_dx * dfi_j_dx + dfi_i_dz * dfi_j_dz))
+                                a_33[i, j] += common_value * (_lambda * (1 - v) * dfi_i_dz * dfi_j_dz + m * (dfi_i_dx * dfi_j_dx + dfi_i_dy * dfi_j_dy))
+                                a_12[i, j] += common_value * _lambda * v * dfi_i_dx * dfi_j_dy + m * dfi_i_dy * dfi_j_dx
+                                a_13[i, j] += common_value * _lambda * v * dfi_i_dx * dfi_j_dz + m * dfi_i_dz * dfi_j_dx
+                                a_23[i, j] += common_value * _lambda * v * dfi_i_dy * dfi_j_dz + m * dfi_i_dz * dfi_j_dy
+                                counter += 1
+
+            mge = np.zeros((60, 60))
+            mge[:20, :20] = a_11
+            mge[20:40, 20:40] = a_22
+            mge[40:, 40:] = a_33
+            mge[:20, 20:40] = a_12
+            mge[20:40, :20] = a_12.T
+
+            mge[:20, 40:] = a_13
+            mge[40:, :20] = a_13.T
+
+            mge[20:40, 40:] = a_23
+            mge[40:, 20:40] = a_23.T
+            mge_by_element[n] = mge
+            assert np.allclose(mge, mge.T, rtol=1e-05, atol=1e-08)  # check symmetric
+
+        # todo: build MGE(60, 60) from mge_by_element[n]
+        return mge_by_element
 
 
 def main():
