@@ -79,6 +79,7 @@ class Parallelepiped:
         print("Built akt")
         self.elements, self.nt = self.build_elements_nt()
         self.ZP = self.build_zp()  # тиснемо на верхні грані всіх верхніх елементів
+        self.ZU = self.build_zu()  # фіксуємо нижні грані нижніх елементів
 
         len_akt = 4 * nx * ny * nz + 3 * (nx * ny + ny * nz + nx * nz) + 2 * (nx + ny + nz) + 1
         if len_akt != len(self.akt):
@@ -110,7 +111,7 @@ class Parallelepiped:
         print("Built FE")
 
         self.K = self.build_K()
-        print("Built K")
+        print("Modified K")
 
         self.F = self.build_F()
         print("Built F")
@@ -203,6 +204,13 @@ class Parallelepiped:
         for element_index in range(self.count_of_elements - 1, count_free_elements - 1, -1):
             ZP[element_index] = 5  # todo: supports only one edge to be pressed
         return ZP
+
+    def build_zu(self):
+        count_fixed_elements = self.nx * self.ny
+        ZU = dict()
+        for element_i in range(count_fixed_elements):
+            ZU[element_i] = 4
+        return ZU
 
     def find_akt_index(self, node_to_find: Point):
         for i, node in enumerate(self.akt):
@@ -462,7 +470,20 @@ class Parallelepiped:
                     k = 3 * self.nt[n][i % 20] + i // 20
                     l = 3 * self.nt[n][j % 20] + j // 20
                     K[k][l] = Ke[i][j]
-        return K  # some items == 0 ;(  (I hope that's OK)
+        print("Built K")
+
+        FACE_INDEX_POINTS = {
+            4: {0, 1, 2, 3, 8, 9, 10, 11},
+
+        }
+        for n, face_index in self.ZU.items():
+            local_nodes_to_fix = FACE_INDEX_POINTS[face_index]
+            for local_node_index in local_nodes_to_fix:
+                k = 3 * self.nt[n][local_node_index]
+                K[k][k] = 10 ** 30
+                K[k + 1][k + 1] = 10 ** 30
+                K[k + 2][k + 2] = 10 ** 30
+        return K
 
     def build_F(self):
         count_of_nodes = len(self.akt)
