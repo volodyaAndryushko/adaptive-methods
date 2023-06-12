@@ -116,6 +116,9 @@ class Parallelepiped:
         self.F = self.build_F()
         print("Built F")
 
+        self.U = self.solve_U()
+        print("Solved U")
+
         print("Init completed")
 
     def build_elements_nt(self) -> Tuple[Dict[ELEMENT_INDEX, List[Point]], Dict[ELEMENT_INDEX, List[int]]]:
@@ -298,8 +301,8 @@ class Parallelepiped:
     def build_mge(self):
         mge_by_element = dict()
         C_CONST = (float64(5 / 9), float64(8 / 9), float64(5 / 9))
-        E = float64(70)  # Значення модуля Юнга для Алюмінію
-        v = float64(0.34)  # Значення коефіцієнта Пуассона для Алюмінію
+        E = float64(1)  # Значення модуля Юнга (70 - для Алюмінію)
+        v = float64(0.3)  # Значення коефіцієнта Пуассона (0.34 - для Алюмінію)
         _lambda = E / ((1 + v) * (1 - 2 * v))  # вікіпедія каже (E * v) / ...
         m = E / (2 * (1 + v))
 
@@ -494,13 +497,16 @@ class Parallelepiped:
                 F[k] = Fe[i]
         return F
 
+    def solve_U(self):
+        return np.linalg.solve(self.K, self.F)
+
 
 def main():
     # ax = int(input("ax="))
     # ay = int(input("ay="))
     # az = int(input("az="))
 
-    ax, ay, az = 2, 2, 2
+    ax, ay, az = 2, 1, 2
 
     global_verticies = (
         (ax, 0, 0), (ax, ay, 0), (0, ay, 0), (0, 0, 0), (ax, 0, az), (ax, ay, az), (0, 0, az), (0, ay, az),
