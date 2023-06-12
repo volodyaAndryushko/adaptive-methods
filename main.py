@@ -1,8 +1,8 @@
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
-import matplotlib.pyplot as plt  # todo: update the requirements
-# from mpl_toolkits.mplot3d import Axes3D
+from plotly import graph_objects as go
+import matplotlib.pyplot as plt
 import numpy as np
 from numpy import sqrt, float64
 
@@ -481,9 +481,9 @@ class Parallelepiped:
         counter = 0
         for point in self.akt:
             new_point = Point(
-                point.x + abs(self.U[counter]),
-                point.y + abs(self.U[counter + 1]),
-                point.z + abs(self.U[counter + 2]),
+                point.x + self.U[counter],
+                point.y + self.U[counter + 1],
+                point.z + self.U[counter + 2],
             )
             counter += 3
             new_akt.append(new_point)
@@ -512,6 +512,44 @@ def main():
     obj = Parallelepiped(ax, ay, az, nx, ny, nz)
     draw_fig(obj.akt)
     draw_fig(obj.new_akt)
+
+    # Plot Initial object
+    trace = go.Scatter3d(
+        x=[point.x for point in obj.akt],
+        y=[point.y for point in obj.akt],
+        z=[point.z for point in obj.akt],
+        text=[i for i, _ in enumerate(obj.akt)], mode='markers',
+        marker=dict(size=3, color='blue', opacity=0.8),
+    )
+
+    # Create layout
+    layout = go.Layout(title='Initial Parallelepiped',
+        scene=dict(xaxis_title='X Axis', yaxis_title='Y Axis', zaxis_title='Z Axis', ), )
+
+    # Create figure
+    fig = go.Figure(data=[trace], layout=layout)
+
+    # Show figure
+    fig.show()
+
+    # Plot Calculated object
+    trace_new = go.Scatter3d(
+        x=[point.x for point in obj.new_akt],
+        y=[point.y for point in obj.new_akt],
+        z=[point.z for point in obj.new_akt],
+        text=[i for i, _ in enumerate(obj.new_akt)], mode='markers',
+        marker=dict(size=3, color='red', opacity=0.8),
+    )
+
+    # Create layout
+    layout_new = go.Layout(title='Calculated Parallelepiped',
+        scene=dict(xaxis_title='X Axis', yaxis_title='Y Axis', zaxis_title='Z Axis', ), )
+
+    # Create figure
+    fig_new = go.Figure(data=[trace_new], layout=layout_new)
+
+    # Show figure
+    fig_new.show()
 
 
 if __name__ == "__main__":
