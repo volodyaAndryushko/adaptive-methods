@@ -1,39 +1,12 @@
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
+import matplotlib.pyplot as plt  # todo: update the requirements
+# from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from numpy import sqrt, float64
 
-# import pygame
-# from pygame.locals import *
-from OpenGL.GL import *
-# from OpenGL.GLU import *
-
-
 ELEMENT_INDEX = int
-
-edges = (
-    (0, 1),
-    (0, 3),
-    (0, 4),
-    (2, 1),
-    (2, 3),
-    (2, 7),
-    (6, 3),
-    (6, 4),
-    (6, 7),
-    (5, 1),
-    (5, 4),
-    (5, 7)
-)
-
-
-def draw_cube(verticies):
-    glBegin(GL_LINES)
-    for edge in edges:
-        for vertex in edge:
-            glVertex3fv(verticies[vertex])
-    glEnd()
 
 
 class Point:
@@ -118,6 +91,9 @@ class Parallelepiped:
 
         self.U = self.solve_U()
         print("Solved U")
+
+        self.new_akt = self.build_new_akt()
+        print("Built new_akt")
 
         print("Init completed")
 
@@ -500,57 +476,42 @@ class Parallelepiped:
     def solve_U(self):
         return np.linalg.solve(self.K, self.F)
 
+    def build_new_akt(self):
+        new_akt = list()
+        counter = 0
+        for point in self.akt:
+            new_point = Point(
+                point.x + abs(self.U[counter]),
+                point.y + abs(self.U[counter + 1]),
+                point.z + abs(self.U[counter + 2]),
+            )
+            counter += 3
+            new_akt.append(new_point)
+        return new_akt
+
+
+def draw_fig(points: List[Point]):
+    fig = plt.figure(figsize=(4, 4))
+
+    ax = fig.add_subplot(111, projection='3d')
+    [ax.scatter(point.x, point.y, point.z, c="red") for point in points]
+    plt.show()
+
 
 def main():
     # ax = int(input("ax="))
     # ay = int(input("ay="))
     # az = int(input("az="))
-
     ax, ay, az = 2, 1, 2
-
-    global_verticies = (
-        (ax, 0, 0), (ax, ay, 0), (0, ay, 0), (0, 0, 0), (ax, 0, az), (ax, ay, az), (0, 0, az), (0, ay, az),
-    )
 
     # nx = int(input("nx="))
     # ny = int(input("ny="))
     # nz = int(input("nz="))
-
     nx, ny, nz = 2, 1, 2
 
     obj = Parallelepiped(ax, ay, az, nx, ny, nz)
-
-    # verticies_by_element = list()
-    # for iz in range(nz + 1):
-    #     for iy in range(ny + 1):
-    #         for ix in range(nx + 1):
-    #             verticies = (
-    #                 (len_nx * ix, 0, 0), (len_nx * ix, len_ny * iy, 0),
-    #                 (0, len_ny * iy, 0), (0, 0, 0),
-    #                 (len_nx * ix, 0, len_nz * iz), (len_nx * ix, len_ny * iy, len_nz * iz),
-    #                 (0, 0, len_nz * iz), (0, len_ny * iy, len_nz * iz),
-    #             )
-    #             verticies_by_element.append(verticies)
-    #
-    # pygame.init()
-    # display_size = (800, 600)
-    # pygame.display.set_mode(display_size, DOUBLEBUF | OPENGL)
-    # gluPerspective(45, (display_size[0]/display_size[1]), 0.1, 100.0)
-    # glTranslatef(0, -5, -45)
-    #
-    # while True:
-    #     for event in pygame.event.get():
-    #         if event.type == pygame.QUIT:
-    #             pygame.quit()
-    #             quit()
-    #
-    #     glRotatef(1, 0, 1, 0)
-    #     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-    #     # draw_cube(global_verticies)
-    #     for vert in verticies_by_element:
-    #         draw_cube(vert)
-    #     pygame.display.flip()
-    #     pygame.time.wait(10)
+    draw_fig(obj.akt)
+    draw_fig(obj.new_akt)
 
 
 if __name__ == "__main__":
